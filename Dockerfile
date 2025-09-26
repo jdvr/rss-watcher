@@ -16,4 +16,4 @@ COPY . .
 VOLUME /usr/src/app
 
 # The command to run the application
-CMD [ "node", "index.js" ]
+CMD [ "npm", "start" ]

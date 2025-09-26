@@ -7,6 +7,5 @@ services:
     restart: unless-stopped
     volumes:
       - ./data:/usr/src/app/data
-    environment:
-      - BOT_TOKEN=${BOT_TOKEN}
-      - RSS_WATCHER_CHECK_INTERVAL_MINUTES=${RSS_WATCHER_CHECK_INTERVAL_MINUTES:-15}
+    env_file:
+      - .env
