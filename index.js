@@ -176,7 +176,7 @@ const checkFeeds = async () => {
 
         for (const item of feed.items) {
           if (!sentItems.includes(item.link)) {
-            const message = `${item.title}\n${item.link}`
+            const message = `Nuevo contenido en el feed: ${feed.title}\n\n${item.title}\n${item.link}`
             
             const subscribers = await storage.getSubscribers(feedUrl)
 
@@ -197,6 +197,7 @@ const checkFeeds = async () => {
   }
 }
 
+console.log(`Feeds are checked every ${checkInterval} minute(s)`)
 setInterval(checkFeeds, checkInterval * 60 * 1000)
 
 bot.launch()
