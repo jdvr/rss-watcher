@@ -1,10 +1,10 @@
 require('dotenv').config()
-const { Telegraf, Composer } = require('telegraf')
+const { Telegraf } = require('telegraf')
 const { message } = require('telegraf/filters')
 const Parser = require('rss-parser')
 const storage = require('./storage.js')
 
-const checkInterval = process.env.RSS_WATHCER_CHECK_INTERVAL_MINUTES  || 10
+const checkInterval = process.env.RSS_WATHCER_CHECK_INTERVAL_MINUTES || 10
 const bot = new Telegraf(process.env.BOT_TOKEN)
 const parser = new Parser()
 
@@ -27,11 +27,15 @@ const addFeedSubscription = async (ctx, feedUrl) => {
       return ctx.reply('Ya estás suscrito a este feed.')
     }
 
-    const subscriptionId = await storage.addSubscription(chatId, feedUrl, feed.title)
+    const subscriptionId = await storage.addSubscription(
+      chatId,
+      feedUrl,
+      feed.title
+    )
     ctx.reply(`Suscrito exitosamente a ${feed.title}`)
 
     const sentItems = await storage.getSentItems(feedUrl)
-    const newItems = feed.items.filter(item => !sentItems.includes(item.link))
+    const newItems = feed.items.filter((item) => !sentItems.includes(item.link))
 
     if (newItems.length > 0) {
       ctx.reply('¿Quieres ver las últimas 5 publicaciones?', {
@@ -39,18 +43,20 @@ const addFeedSubscription = async (ctx, feedUrl) => {
           inline_keyboard: [
             [
               { text: 'Sí', callback_data: `show_last_5:${subscriptionId}` },
-              { text: 'No', callback_data: `skip_last_5:${subscriptionId}` }
-            ]
-          ]
-        }
+              { text: 'No', callback_data: `skip_last_5:${subscriptionId}` },
+            ],
+          ],
+        },
       })
     } else {
       for (const item of newItems) {
         await storage.addSentItem(feedUrl, item.link)
       }
     }
-  } catch (error) {
-    ctx.reply('No se pudo obtener o analizar el feed RSS. Por favor, comprueba la URL.')
+  } catch {
+    ctx.reply(
+      'No se pudo obtener o analizar el feed RSS. Por favor, comprueba la URL.'
+    )
   }
 }
 
@@ -76,7 +82,9 @@ bot.command('listar', async (ctx) => {
     for (const sub of userSubscriptions) {
       ctx.reply(sub.feed_title, {
         reply_markup: {
-          inline_keyboard: [[{ text: 'Borrar', callback_data: `unsubscribe:${sub.id}` }]],
+          inline_keyboard: [
+            [{ text: 'Borrar', callback_data: `unsubscribe:${sub.id}` }],
+          ],
         },
       })
     }
@@ -87,7 +95,9 @@ bot.command('listar', async (ctx) => {
 })
 
 bot.command('eliminar', (ctx) => {
-  ctx.reply('Por favor, usa el comando /listar para ver tus suscripciones y darte de baja.')
+  ctx.reply(
+    'Por favor, usa el comando /listar para ver tus suscripciones y darte de baja.'
+  )
 })
 
 bot.action(/unsubscribe:(\d+)/, async (ctx) => {
@@ -116,7 +126,7 @@ bot.action(/show_last_5:(\d+)/, async (ctx) => {
   }
   const feed = await parser.parseURL(sub.feed_url)
   const sentItems = await storage.getSentItems(sub.feed_url)
-  const newItems = feed.items.filter(item => !sentItems.includes(item.link))
+  const newItems = feed.items.filter((item) => !sentItems.includes(item.link))
 
   for (const item of newItems.slice(0, 5)) {
     ctx.reply(`${item.title}\n${item.link}`)
@@ -137,7 +147,7 @@ bot.action(/skip_last_5:(\d+)/, async (ctx) => {
   }
   const feed = await parser.parseURL(sub.feed_url)
   const sentItems = await storage.getSentItems(sub.feed_url)
-  const newItems = feed.items.filter(item => !sentItems.includes(item.link))
+  const newItems = feed.items.filter((item) => !sentItems.includes(item.link))
 
   for (const item of newItems) {
     await storage.addSentItem(sub.feed_url, item.link)
@@ -177,7 +187,7 @@ const checkFeeds = async () => {
         for (const item of feed.items) {
           if (!sentItems.includes(item.link)) {
             const message = `Nuevo contenido en el feed: ${feed.title}\n\n${item.title}\n${item.link}`
-            
+
             const subscribers = await storage.getSubscribers(feedUrl)
 
             for (const chatId of subscribers) {
