@@ -4,6 +4,7 @@ const { message } = require('telegraf/filters')
 const Parser = require('rss-parser')
 const storage = require('./storage.js')
 
+const checkInterval = process.env.RSS_WATHCER_CHECK_INTERVAL_MINUTES  || 10
 const bot = new Telegraf(process.env.BOT_TOKEN)
 const parser = new Parser()
 
@@ -196,8 +197,7 @@ const checkFeeds = async () => {
   }
 }
 
-// Check feeds every 15 minutes
-setInterval(checkFeeds, 1 * 60 * 1000)
+setInterval(checkFeeds, checkInterval * 60 * 1000)
 
 bot.launch()
 
