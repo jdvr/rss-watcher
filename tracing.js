@@ -6,7 +6,7 @@ const {
   OTLPTraceExporter,
 } = require('@opentelemetry/exporter-trace-otlp-http')
 const {
-  OTLPMetricsExporter,
+  OTLPMetricExporter,
 } = require('@opentelemetry/exporter-metrics-otlp-http')
 const { PeriodicExportingMetricReader } = require('@opentelemetry/sdk-metrics')
 
@@ -17,7 +17,7 @@ if (
   const sdk = new NodeSDK({
     traceExporter: new OTLPTraceExporter(),
     metricReader: new PeriodicExportingMetricReader({
-      exporter: new OTLPMetricsExporter(),
+      exporter: new OTLPMetricExporter(),
     }),
     instrumentations: [getNodeAutoInstrumentations()],
   })

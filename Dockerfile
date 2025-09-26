@@ -16,4 +16,4 @@ COPY . .
 VOLUME /usr/src/app
 
 # The command to run the application
-CMD [ "npm", "start" ]
+CMD [ "npm", "run", "start" ]
