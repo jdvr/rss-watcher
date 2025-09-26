@@ -36,3 +36,17 @@ A Telegram bot to manage RSS subscriptions.
 - `/add <feed_url>` - Add a new RSS feed.
 - `/list` - List your subscriptions and unsubscribe.
 - `/remove` - Alias for `/list`.
+
+## Running with Docker
+
+1.  Create a `.env` file in the root of the project and add your Telegram bot token:
+
+    ```
+    BOT_TOKEN=your_bot_token
+    ```
+
+2.  Build and run the container using Docker Compose:
+
+    ```
+    docker-compose up -d --build
+    ```
