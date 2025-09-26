@@ -1,5 +1,5 @@
 const sqlite3 = require('sqlite3').verbose()
-const db = new sqlite3.Database('./rss-watcher.db')
+const db = new sqlite3.Database('./data/rss-watcher.db')
 
 db.serialize(() => {
   db.run(`
