@@ -1,0 +1,6 @@
+# Local environment variables
+.env
+
+# Dependencies
+node_modules
+*.db
