@@ -12,23 +12,37 @@ const parser = new Parser()
 const tracer = trace.getTracer('rss-watcher-tracer')
 const meter = metrics.getMeter('rss-watcher-meter')
 
-const checkFeedsDuration = meter.createHistogram(
-  'rss_watcher_check_feeds_duration',
+const WELCOME_MESSAGE =
+  '¡Bienvenido al Bot Vigilante de RSS!\n\n' +
+  'Usa /agregar <feed_url> para agregar un nuevo feed RSS.\n' +
+  'Usa /listar para ver tus suscripciones actuales.\n' +
+  'Usa /eliminar para darte de baja de un feed.'
+
+const METRICS_PREFIX = 'rss.watcher.'
+
+const checkFeedDuration = meter.createHistogram(
+  `${METRICS_PREFIX}check.feed.duration`,
   {
-    description: 'Duration of checkFeeds function',
+    description: 'Duration of each feed process',
     unit: 'ms',
   }
 )
 
-const activeFeeds = meter.createObservableGauge('rss_watcher_active_feeds', {
-  description: 'Number of active feeds',
-  unit: '1',
-})
+const activeFeeds = meter.createObservableGauge(
+  `${METRICS_PREFIX}active.feeds`,
+  {
+    description: 'Number of active feeds',
+    unit: '1',
+  }
+)
 
-const activeChats = meter.createObservableGauge('rss_watcher_active_chats', {
-  description: 'Number of active chats',
-  unit: '1',
-})
+const activeChats = meter.createObservableGauge(
+  `${METRICS_PREFIX}active.chats`,
+  {
+    description: 'Number of active chats',
+    unit: '1',
+  }
+)
 
 activeFeeds.addCallback(async (result) => {
   const allFeedUrls = await storage.getAllSubscriptions()
@@ -47,82 +61,95 @@ activeChats.addCallback(async (result) => {
 
 const instrumentedCommand = (command, fn) => {
   return (ctx) => {
-    const span = tracer.startSpan(`command: ${command}`, {
-      attributes: {
-        'chat.id': ctx.chat.id,
-        'user.id': ctx.from.id,
-        'user.username': ctx.from.username,
+    tracer.startActiveSpan(
+      `command: ${command}`,
+      {
+        attributes: {
+          'chat.id': ctx.chat.id,
+          'user.id': ctx.from.id,
+          'user.username': ctx.from.username,
+        },
       },
-    })
-    span.addEvent('command received')
-    fn(ctx)
-    span.end()
+      (span) => {
+        span.addEvent('command.received')
+        fn(ctx)
+        span.end()
+      }
+    )
   }
 }
 
 bot.start(
   instrumentedCommand('start', (ctx) => {
-    ctx.reply(
-      '¡Bienvenido al Bot Vigilante de RSS!\n\n' +
-        'Usa /agregar <feed_url> para agregar un nuevo feed RSS.\n' +
-        'Usa /listar para ver tus suscripciones actuales.\n' +
-        'Usa /eliminar para darte de baja de un feed.'
-    )
+    ctx.reply(WELCOME_MESSAGE)
   })
 )
 
 const addFeedSubscription = async (ctx, feedUrl) => {
-  const span = tracer.startSpan('addFeedSubscription', {
-    attributes: {
-      'chat.id': ctx.chat.id,
-      'feed.url': feedUrl,
+  await tracer.startActiveSpan(
+    'addFeedSubscription',
+    {
+      attributes: {
+        'chat.id': ctx.chat.id,
+        'feed.url': feedUrl,
+      },
     },
-  })
-  try {
-    const feed = await parser.parseURL(feedUrl)
-    const chatId = ctx.chat.id
+    async (span) => {
+      try {
+        const feed = await parser.parseURL(feedUrl)
+        const chatId = ctx.chat.id
 
-    const isSubscribed = await storage.isSubscribed(chatId, feedUrl)
-    if (isSubscribed) {
-      span.addEvent('already subscribed')
-      return ctx.reply('Ya estás suscrito a este feed.')
-    }
+        const isSubscribed = await storage.isSubscribed(chatId, feedUrl)
+        if (isSubscribed) {
+          span.addEvent('already subscribed')
+          return ctx.reply('Ya estás suscrito a este feed.')
+        }
 
-    const subscriptionId = await storage.addSubscription(
-      chatId,
-      feedUrl,
-      feed.title
-    )
-    span.addEvent('subscription added')
-    ctx.reply(`Suscrito exitosamente a ${feed.title}`)
+        const subscriptionId = await storage.addSubscription(
+          chatId,
+          feedUrl,
+          feed.title
+        )
+        span.addEvent('subscription added')
+        ctx.reply(`Suscrito exitosamente a ${feed.title}`)
 
-    const sentItems = await storage.getSentItems(feedUrl)
-    const newItems = feed.items.filter((item) => !sentItems.includes(item.link))
+        const sentItems = await storage.getSentItems(feedUrl)
+        const newItems = feed.items.filter(
+          (item) => !sentItems.includes(item.link)
+        )
 
-    if (newItems.length > 0) {
-      ctx.reply('¿Quieres ver las últimas 5 publicaciones?', {
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: 'Sí', callback_data: `show_last_5:${subscriptionId}` },
-              { text: 'No', callback_data: `skip_last_5:${subscriptionId}` },
-            ],
-          ],
-        },
-      })
-    } else {
-      for (const item of newItems) {
-        await storage.addSentItem(feedUrl, item.link)
+        if (newItems.length > 0) {
+          ctx.reply('¿Quieres ver las últimas 5 publicaciones?', {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  {
+                    text: 'Sí',
+                    callback_data: `show_last_5:${subscriptionId}`,
+                  },
+                  {
+                    text: 'No',
+                    callback_data: `skip_last_5:${subscriptionId}`,
+                  },
+                ],
+              ],
+            },
+          })
+        } else {
+          for (const item of newItems) {
+            await storage.addSentItem(feedUrl, item.link)
+          }
+        }
+      } catch (error) {
+        span.recordException(error)
+        ctx.reply(
+          'No se pudo obtener o analizar el feed RSS. Por favor, comprueba la URL.'
+        )
+      } finally {
+        span.end()
       }
     }
-  } catch (error) {
-    span.recordException(error)
-    ctx.reply(
-      'No se pudo obtener o analizar el feed RSS. Por favor, comprueba la URL.'
-    )
-  } finally {
-    span.end()
-  }
+  )
 }
 
 bot.command(
@@ -235,7 +262,9 @@ bot.action(
       await storage.addSentItem(sub.feed_url, item.link)
     }
 
-    ctx.answerCbQuery('Se han registrado todas las publicaciones como enviadas.')
+    ctx.answerCbQuery(
+      'Se han registrado todas las publicaciones como enviadas.'
+    )
   })
 )
 
@@ -249,66 +278,69 @@ bot.on(
       const feedUrl = urls[0]
       await addFeedSubscription(ctx, feedUrl)
     } else {
-      ctx.reply(
-        '¡Bienvenido al Bot Vigilante de RSS!\n\n' +
-          'Usa /agregar <feed_url> para agregar un nuevo feed RSS.\n' +
-          'Usa /listar para ver tus suscripciones actuales.\n' +
-          'Usa /eliminar para darte de baja de un feed.'
-      )
+      ctx.reply(WELCOME_MESSAGE)
     }
   })
 )
 
 const checkFeeds = async () => {
-  const span = tracer.startSpan('checkFeeds')
-  const startTime = Date.now()
-  try {
-    const allFeedUrls = await storage.getAllSubscriptions()
-    span.setAttribute('feeds.count', allFeedUrls.length)
-    console.log(`Checking ${allFeedUrls}`)
+  await tracer.startActiveSpan('checkFeeds', async (span) => {
+    try {
+      const allFeedUrls = await storage.getAllSubscriptions()
+      span.setAttribute('feeds.count', allFeedUrls.length)
+      console.log(`Checking ${allFeedUrls}`)
 
-    for (const feedUrl of allFeedUrls) {
-      const feedSpan = tracer.startSpan('checkFeed', {
-        attributes: {
-          'feed.url': feedUrl,
-        },
-      })
-      try {
-        const feed = await parser.parseURL(feedUrl)
-        const sentItems = await storage.getSentItems(feedUrl)
-        feedSpan.setAttribute('sent.items.count', sentItems.length)
-        console.log(`Sent items ${sentItems}`)
+      for (const feedUrl of allFeedUrls) {
+        await tracer.startActiveSpan(
+          'checkFeed',
+          {
+            attributes: {
+              'feed.url': feedUrl,
+            },
+          },
+          async (feedSpan) => {
+            const startTime = Date.now()
+            try {
+              const feed = await parser.parseURL(feedUrl)
+              const sentItems = await storage.getSentItems(feedUrl)
+              feedSpan.setAttribute('sent.items.count', sentItems.length)
+              console.log(`Sent items ${sentItems}`)
 
-        for (const item of feed.items) {
-          if (!sentItems.includes(item.link)) {
-            const message = `Nuevo contenido en el feed: ${feed.title}\n\n${item.title}\n${item.link}`
+              for (const item of feed.items) {
+                if (!sentItems.includes(item.link)) {
+                  const message = `Nuevo contenido en el feed: ${feed.title}\n\n${item.title}\n${item.link}`
 
-            const subscribers = await storage.getSubscribers(feedUrl)
-            feedSpan.setAttribute('subscribers.count', subscribers.length)
+                  const subscribers = await storage.getSubscribers(feedUrl)
+                  feedSpan.setAttribute('subscribers.count', subscribers.length)
 
-            for (const chatId of subscribers) {
-              console.log(`Sending ${message} to ${chatId}`)
-              bot.telegram.sendMessage(chatId, message)
+                  for (const chatId of subscribers) {
+                    console.log(`Sending ${message} to ${chatId}`)
+                    bot.telegram.sendMessage(chatId, message)
+                  }
+
+                  await storage.addSentItem(feedUrl, item.link)
+                }
+              }
+            } catch (error) {
+              feedSpan.recordException(error)
+              console.error(`Failed to check feed ${feedUrl}:`, error)
+            } finally {
+              const endTime = Date.now()
+              checkFeedDuration.record(endTime - startTime, {
+                'feed.url': feedUrl,
+              })
+              feedSpan.end()
             }
-
-            await storage.addSentItem(feedUrl, item.link)
           }
-        }
-      } catch (error) {
-        feedSpan.recordException(error)
-        console.error(`Failed to check feed ${feedUrl}:`, error)
-      } finally {
-        feedSpan.end()
+        )
       }
+    } catch (error) {
+      span.recordException(error)
+      console.error('Failed to get all subscriptions:', error)
+    } finally {
+      span.end()
     }
-  } catch (error) {
-    span.recordException(error)
-    console.error('Failed to get all subscriptions:', error)
-  } finally {
-    const endTime = Date.now()
-    checkFeedsDuration.record(endTime - startTime)
-    span.end()
-  }
+  })
 }
 
 console.log(`Feeds are checked every ${checkInterval} minute(s)`)

@@ -5,8 +5,8 @@
   "scripts": {
     "start": "node -r ./tracing.js index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint --fix . && prettier --write .",
-    "lint:check": "ESLINT_USE_FLAT_CONFIG=false eslint . && prettier --check ."
+    "lint": "eslint --fix . && prettier --write .",
+    "lint:check": "eslint . && prettier --check ."
   },
   "keywords": [],
   "author": "",

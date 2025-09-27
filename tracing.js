@@ -2,9 +2,7 @@ const { NodeSDK } = require('@opentelemetry/sdk-node')
 const {
   getNodeAutoInstrumentations,
 } = require('@opentelemetry/auto-instrumentations-node')
-const {
-  OTLPTraceExporter,
-} = require('@opentelemetry/exporter-trace-otlp-http')
+const { OTLPTraceExporter } = require('@opentelemetry/exporter-trace-otlp-http')
 const {
   OTLPMetricExporter,
 } = require('@opentelemetry/exporter-metrics-otlp-http')
@@ -25,5 +23,7 @@ if (
   sdk.start()
   console.log('OpenTelemetry initialized')
 } else {
-  console.log('OpenTelemetry not initialized, required environment variables are missing')
+  console.log(
+    'OpenTelemetry not initialized, required environment variables are missing'
+  )
 }
