@@ -5,7 +5,7 @@ module.exports = [
   js.configs.recommended,
   {
     languageOptions: {
-      ecmaVersion: 12,
+      ecmaVersion: 2022,
       sourceType: 'commonjs',
       globals: {
         ...globals.browser,

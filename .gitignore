@@ -4,5 +4,6 @@
 # Dependencies
 node_modules
 *.db
+*.sqlite
 .DS_Store
 current-working.diff

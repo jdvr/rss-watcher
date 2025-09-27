@@ -1,9 +1,7 @@
 const Parser = require('rss-parser')
 const { tracer } = require('./instrumentation')
 
-const createSubscriptionService = (storage) => {
-  const parser = new Parser()
-
+const createSubscriptionService = (storage, parser) => {
   const addFeedSubscription = async (ctx, feedUrl) => {
     await tracer.startActiveSpan(
       'addFeedSubscription',
@@ -20,7 +18,7 @@ const createSubscriptionService = (storage) => {
 
           const isSubscribed = await storage.isSubscribed(chatId, feedUrl)
           if (isSubscribed) {
-            span.addEvent('already subscribed')
+            span.addEvent('already.subscribed')
             return ctx.reply('Ya estás suscrito a este feed.')
           }
 
@@ -29,7 +27,7 @@ const createSubscriptionService = (storage) => {
             feedUrl,
             feed.title
           )
-          span.addEvent('subscription added')
+          span.addEvent('subscription.added')
           ctx.reply(`Suscrito exitosamente a ${feed.title}`)
 
           const sentItems = await storage.getSentItems(feedUrl)

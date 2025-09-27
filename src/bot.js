@@ -3,6 +3,8 @@ const { message } = require('telegraf/filters')
 const { instrumentedCommand } = require('./instrumentation')
 const createSubscriptionService = require('./subscription-service')
 const createListService = require('./commands/list-service')
+const Parser = require('rss-parser')
+const he = require('he')
 
 const WELCOME_MESSAGE =
   '¡Bienvenido al Bot Vigilante de RSS!\n\n' +
@@ -11,8 +13,9 @@ const WELCOME_MESSAGE =
   'Usa /eliminar para darte de baja de un feed.'
 
 const createBot = (storage) => {
+  const parser = new Parser()
   const bot = new Telegraf(process.env.BOT_TOKEN)
-  const subscriptionService = createSubscriptionService(storage)
+  const subscriptionService = createSubscriptionService(storage, parser)
   const listService = createListService(storage)
 
   bot.start(instrumentedCommand('start', (ctx) => {
@@ -70,7 +73,7 @@ const createBot = (storage) => {
     const newItems = feed.items.filter((item) => !sentItems.includes(item.link))
 
     for (const item of newItems.slice(0, 5)) {
-      ctx.reply(`${item.title}\n${item.link}`)
+      ctx.reply(`${he.decode(item.title)}\n${item.link}`)
     }
 
     for (const item of newItems) {
