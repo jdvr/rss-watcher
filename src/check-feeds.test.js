@@ -82,4 +82,40 @@ describe('checkFeeds', () => {
     expect(bot.telegram.sendMessage).not.toHaveBeenCalled()
     expect(storage.addSentItem).not.toHaveBeenCalled()
   })
+
+  it('should unescape HTML entities from item titles', async () => {
+    const storage = {
+      getAllSubscriptions: jest
+        .fn()
+        .mockResolvedValue(['https://example.com/rss.xml']),
+      getSubscribers: jest.fn().mockResolvedValue([123]),
+      getSentItems: jest.fn().mockResolvedValue([]),
+      addSentItem: jest.fn(),
+    }
+
+    const bot = {
+      telegram: {
+        sendMessage: jest.fn(),
+      },
+    }
+
+    const parser = {
+      parseURL: jest.fn().mockResolvedValue({
+        title: 'Example Feed',
+        items: [
+          {
+            title: 'This title has a &#039;single quote&#039;',
+            link: 'https://example.com/item-with-html-entities',
+          },
+        ],
+      }),
+    }
+
+    const feedService = createFeedService(storage, bot, parser)
+    await feedService.checkFeeds()
+
+    const expectedMessage =
+      "Nuevo contenido en el feed: Example Feed\n\nThis title has a 'single quote'\nhttps://example.com/item-with-html-entities"
+    expect(bot.telegram.sendMessage).toHaveBeenCalledWith(123, expectedMessage)
+  })
 })

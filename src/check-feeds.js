@@ -1,4 +1,5 @@
 const { tracer, checkFeedDuration } = require('./instrumentation')
+const he = require('he')
 
 const createFeedService = (storage, bot, parser) => {
   const checkFeeds = async () => {
@@ -26,7 +27,9 @@ const createFeedService = (storage, bot, parser) => {
 
                 for (const item of feed.items) {
                   if (!sentItems.includes(item.link)) {
-                    const message = `Nuevo contenido en el feed: ${feed.title}\n\n${item.title}\n${item.link}`
+                    const message = `Nuevo contenido en el feed: ${feed.title}\n\n${he.decode(
+                      item.title
+                    )}\n${item.link}`
 
                     const subscribers = await storage.getSubscribers(feedUrl)
                     feedSpan.setAttribute(
