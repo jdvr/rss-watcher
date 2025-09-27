@@ -22,7 +22,8 @@ const createDb = (filename) => {
       `CREATE TABLE IF NOT EXISTS sent_items (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         feed_url TEXT,
-        item_link TEXT
+        item_link TEXT,
+        chat_id INTEGER
       )`
     )
   })

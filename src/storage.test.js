@@ -62,10 +62,17 @@ describe('storage', () => {
   })
 
   it('should add and get sent items', async () => {
-    await storage.addSentItem('https://example.com/rss.xml', 'https://example.com/item1')
-    const sentItems = await storage.getSentItems('https://example.com/rss.xml')
+    await storage.addSentItem('https://example.com/rss.xml', 'https://example.com/item1', 123)
+    const sentItems = await storage.getSentItems('https://example.com/rss.xml', 123)
     expect(sentItems).toHaveLength(1)
     expect(sentItems[0]).toBe('https://example.com/item1')
+  })
+
+  it('should remove sent items', async () => {
+    await storage.addSentItem('https://example.com/rss.xml', 'https://example.com/item1', 123)
+    await storage.removeSentItems('https://example.com/rss.xml', 123)
+    const sentItems = await storage.getSentItems('https://example.com/rss.xml', 123)
+    expect(sentItems).toHaveLength(0)
   })
 
   it('should check if a user is subscribed', async () => {

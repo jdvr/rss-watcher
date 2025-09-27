@@ -51,6 +51,7 @@ const createBot = (storage) => {
       const sub = await storage.getSubscriptionById(subId)
       if (sub) {
         await storage.removeSubscription(subId)
+        await storage.removeSentItems(sub.feed_url, sub.chat_id)
         ctx.editMessageText(`Suscripción a "${sub.feed_title}" eliminada.`)
       } else {
         ctx.answerCbQuery('La suscripción ya ha sido eliminada.')
@@ -69,7 +70,7 @@ const createBot = (storage) => {
       return ctx.answerCbQuery('Suscripción no encontrada.')
     }
     const feed = await parser.parseURL(sub.feed_url)
-    const sentItems = await storage.getSentItems(sub.feed_url)
+    const sentItems = await storage.getSentItems(sub.feed_url, sub.chat_id)
     const newItems = feed.items.filter((item) => !sentItems.includes(item.link))
 
     for (const item of newItems.slice(0, 5)) {
@@ -77,7 +78,7 @@ const createBot = (storage) => {
     }
 
     for (const item of newItems) {
-      await storage.addSentItem(sub.feed_url, item.link)
+      await storage.addSentItem(sub.feed_url, item.link, sub.chat_id)
     }
 
     ctx.answerCbQuery('Aquí tienes las últimas 5 publicaciones.')
@@ -90,11 +91,11 @@ const createBot = (storage) => {
       return ctx.answerCbQuery('Suscripción no encontrada.')
     }
     const feed = await parser.parseURL(sub.feed_url)
-    const sentItems = await storage.getSentItems(sub.feed_url)
+    const sentItems = await storage.getSentItems(sub.feed_url, sub.chat_id)
     const newItems = feed.items.filter((item) => !sentItems.includes(item.link))
 
     for (const item of newItems) {
-      await storage.addSentItem(sub.feed_url, item.link)
+      await storage.addSentItem(sub.feed_url, item.link, sub.chat_id)
     }
 
     ctx.answerCbQuery(

@@ -5,25 +5,28 @@ const createFeedService = (storage, bot, parser) => {
   const checkFeeds = async () => {
     await tracer.startActiveSpan('checkFeeds', async (span) => {
       try {
-        const allFeedUrls = await storage.getAllSubscriptions()
-        span.setAttribute('feeds.count', allFeedUrls.length)
-        console.log(`Checking ${allFeedUrls}`)
-
-        for (const feedUrl of allFeedUrls) {
+        const allSubscriptions = await storage.getAllSubscriptionsWithChats()
+        span.setAttribute('subscriptions.count', allSubscriptions.length)
+        console.log(`Checking ${allSubscriptions.length} subscriptions`)
+        const localFeedCache = {}
+        for (const subscription of allSubscriptions) {
+          const { feed_url: feedUrl, chat_id: chatId } = subscription
           await tracer.startActiveSpan(
             'checkFeed',
             {
               attributes: {
                 'feed.url': feedUrl,
+                'chat.id': chatId,
               },
             },
             async (feedSpan) => {
               const startTime = Date.now()
               try {
-                const feed = await parser.parseURL(feedUrl)
-                const sentItems = await storage.getSentItems(feedUrl)
+                const feed = localFeedCache[feedUrl] || await parser.parseURL(feedUrl)
+                localFeedCache[feedUrl] = feed
+                const sentItems = await storage.getSentItems(feedUrl, chatId)
                 feedSpan.setAttribute('sent.items.count', sentItems.length)
-                console.log(`Sent items ${sentItems}`)
+                console.log(`Sent items for ${chatId}: ${sentItems}`)
 
                 for (const item of feed.items) {
                   if (!sentItems.includes(item.link)) {
@@ -31,18 +34,10 @@ const createFeedService = (storage, bot, parser) => {
                       item.title
                     )}\n${item.link}`
 
-                    const subscribers = await storage.getSubscribers(feedUrl)
-                    feedSpan.setAttribute(
-                      'subscribers.count',
-                      subscribers.length
-                    )
+                    console.log(`Sending ${message} to ${chatId}`)
+                    bot.telegram.sendMessage(chatId, message)
 
-                    for (const chatId of subscribers) {
-                      console.log(`Sending ${message} to ${chatId}`)
-                      bot.telegram.sendMessage(chatId, message)
-                    }
-
-                    await storage.addSentItem(feedUrl, item.link)
+                    await storage.addSentItem(feedUrl, item.link, chatId)
                   }
                 }
               } catch (error) {

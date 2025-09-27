@@ -56,14 +56,21 @@ class Storage {
   }
 
   getAllSubscriptions() {
+    return this.getAllSubscriptionsWithChats().then((subscriptions) => {
+      const feedUrls = subscriptions.map((sub) => sub.feed_url)
+      return [...new Set(feedUrls)]
+    })
+  }
+
+  getAllSubscriptionsWithChats() {
     return new Promise((resolve, reject) => {
       this.db.all(
-        'SELECT DISTINCT feed_url FROM subscriptions',
+        'SELECT feed_url, chat_id FROM subscriptions',
         (err, rows) => {
           if (err) {
             return reject(err)
           }
-          resolve(rows.map((row) => row.feed_url))
+          resolve(rows)
         }
       )
     })
@@ -84,11 +91,11 @@ class Storage {
     })
   }
 
-  addSentItem(feedUrl, itemLink) {
+  addSentItem(feedUrl, itemLink, chatId) {
     return new Promise((resolve, reject) => {
       this.db.run(
-        'INSERT INTO sent_items (feed_url, item_link) VALUES (?, ?)',
-        [feedUrl, itemLink],
+        'INSERT INTO sent_items (feed_url, item_link, chat_id) VALUES (?, ?, ?)',
+        [feedUrl, itemLink, chatId],
         function (err) {
           if (err) {
             return reject(err)
@@ -99,16 +106,31 @@ class Storage {
     })
   }
 
-  getSentItems(feedUrl) {
+  getSentItems(feedUrl, chatId) {
     return new Promise((resolve, reject) => {
       this.db.all(
-        'SELECT item_link FROM sent_items WHERE feed_url = ?',
-        [feedUrl],
+        'SELECT item_link FROM sent_items WHERE feed_url = ? AND chat_id = ?',
+        [feedUrl, chatId],
         (err, rows) => {
           if (err) {
             return reject(err)
           }
           resolve(rows.map((row) => row.item_link))
+        }
+      )
+    })
+  }
+
+  removeSentItems(feedUrl, chatId) {
+    return new Promise((resolve, reject) => {
+      this.db.run(
+        'DELETE FROM sent_items WHERE feed_url = ? AND chat_id = ?',
+        [feedUrl, chatId],
+        function (err) {
+          if (err) {
+            return reject(err)
+          }
+          resolve(this.changes)
         }
       )
     })
